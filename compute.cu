@@ -1,4 +1,6 @@
-// Katie Oates & John Henry
+/*
+    Katie Oates & John Henry Cooper
+*/
 
 #include <stdlib.h>
 #include <math.h>
@@ -6,30 +8,30 @@
 #include "config.h"
 #include <cuda_runtime.h>
 
+__global__ void compute_kernel(vector3 *values, double *hPos, double *hVel, double *mass) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-__global__ void compute_kernel(vector3 *values, double *hPos, double *hVel, double *mass){
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    if (idx >= NUMENTITIES * NUMENTITIES) return;
 
-    if (9 >= NUMENTITIES || j >= NUMENTITIES){
-        return;
-    }
+    int i = idx / NUMENTITIES;
+    int j = idx % NUMENTITIES;
 
-    if (i == j){
-        FILL_VECTOR (values[i*NUMENTITIES + j], 0, 0, 0);
+    if (i == j) {
+        FILL_VECTOR(values[idx], 0, 0, 0);
     } else {
         vector3 distance;
-        for (int k = 0; k < 3; k++){
-            distance[k] = hPos[i*3 + k] - hPos[j*3 + k];
-            double magnitude_sq = distance[0]*distance[0] + distance[1]*distance[1] + distance[2]*distance[2];
-            double magnitude = sqrt(magnitude_sq);
-            double accelmag = -1 * GRAV_CONSTANT * mass[j] / magnitude_sq;
-            FILL_VECTOR(values[i*NUMENTITIES + j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
+        for (int k = 0; k < 3; k++) {
+            distance[k] = hPos[i * 3 + k] - hPos[j * 3 + k];
         }
+        double magnitude_sq = distance[0] * distance[0] + distance[1] * distance[1] + distance[2] * distance[2];
+        double magnitude = sqrt(magnitude_sq);
+        double accelmag = -1 * GRAV_CONSTANT * mass[j] / magnitude_sq;
+        FILL_VECTOR(values[idx], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
     }
 }
 
-__global__ void update_kernel(vector3 *values, double *hPos, double *hVel, double *mass){
+
+__global__ void update_kernel(vector3 *values, double *hPos, double *hVel, double *mass) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= NUMENTITIES) return;
 
@@ -52,6 +54,7 @@ __global__ void update_kernel(vector3 *values, double *hPos, double *hVel, doubl
 //Returns: None
 //Side Effect: Modifies the hPos and hVel arrays with the new positions and accelerations after 1 INTERVAL
 extern "C" void compute() {
+
     // Allocate memory on the device
     vector3 *d_values;
     double *d_hPos, *d_hVel, *d_mass;
